@@ -176,4 +176,12 @@ ggplot(data=preds_OLS, aes(x=time, y=total, colour = set)) +
                      , values = c("Predictions" = "red",'test'='blue', 'train'='grey'))
 
 
+preds_WLS <- preds_WLS %>% 
+  mutate(residuals = total - y_hat)
+
+
+
+
+ggplot(data=preds_WLS, aes(x=time, y=residuals)) + 
+  geom_point()
 

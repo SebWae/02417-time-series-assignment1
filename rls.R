@@ -39,7 +39,7 @@ print(my_vect %*% t(my_vect))
 print(2 - matrix(c(1), nrow = 1, ncol = 1))
 
 
-## 5.2 Update equations algorithm
+## 5.2 Update equations algorithm ----
 get_rls_params <- function(x_vals, y_vals, theta_0, R_0) {
   # Number of data points
   N <- length(x_vals)  
@@ -91,7 +91,7 @@ print(thetas)
 # If the error is 0, the parameters will not be updated at all 
 
 
-## 5.3 Final RLS params
+## 5.3 Final RLS params ----
 thetas <- get_rls_params(Dtrain$year, Dtrain$total, theta_0, R_0)
 print(last(thetas))
 
@@ -116,7 +116,7 @@ print(last(thetas))
 # changing R has a larger impact 
 
 
-## 5.4 RLS with forgetting
+## 5.4 RLS with forgetting ----
 get_rls_params_w_forget <- function(x_vals, y_vals, theta_0, R_0, lambda) {
   # Number of data points
   N <- length(x_vals)  
@@ -159,12 +159,77 @@ get_rls_params_w_forget <- function(x_vals, y_vals, theta_0, R_0, lambda) {
 
 theta_0 <- c(0,0)
 R_0 <- matrix(c(0.1, 0, 0, 0.1), nrow = 2, ncol = 2)
-lambda <- 0.7
-thetas <- get_rls_params_w_forget(Dtrain$year, Dtrain$total, theta_0, R_0, lambda)
-
+thetas <- get_rls_params_w_forget(Dtrain$year, Dtrain$total, theta_0, R_0, 0.7)
+print(thetas)
 # Unpacking the parameter values
+theta_0s <- c()
+theta_1s <- c()
+
 for (theta in thetas) {
+  # Retrieving theta values
+  theta_0 <- theta[1]
+  theta_1 <- theta[2]
   
+  # Appending to lists
+  theta_0s <- append(theta_0s, theta_0)
+  theta_1s <- append(theta_1s, theta_1)
 }
 
+Dtrain$theta_0_l07 <- theta_0s
+Dtrain$theta_1_l07 <- theta_1s
 
+# Repeating with lambda = 0.99
+theta_0 <- c(0,0)
+R_0 <- matrix(c(0.1, 0, 0, 0.1), nrow = 2, ncol = 2)
+thetas <- get_rls_params_w_forget(Dtrain$year, Dtrain$total, theta_0, R_0, 0.99)
+print(thetas)
+# Unpacking the parameter values
+theta_0s <- c()
+theta_1s <- c()
+
+for (theta in thetas) {
+  # Retrieving theta values
+  theta_0 <- theta[1]
+  theta_1 <- theta[2]
+  
+  # Appending to lists
+  theta_0s <- append(theta_0s, theta_0)
+  theta_1s <- append(theta_1s, theta_1)
+}
+
+Dtrain$theta_0_l099 <- theta_0s
+Dtrain$theta_1_l099 <- theta_1s
+
+# Plot for each parameter
+ggplot(data=Dtrain[-(1:20), ], aes(x=time)) +
+  geom_line(aes(y=theta_0_l07, col="lambda=0.7")) +
+  geom_line(aes(y=theta_0_l099, col="lambda=0.99")) +
+  xlab("Time [monthly]") +
+  ylab("theta_0") +
+  ggtitle("Values of theta_0") +
+  scale_color_manual(
+    name = "",
+    values = c("lambda=0.7" = "red",
+               "lambda=0.99" = "blue")
+  ) 
+
+ggplot(data=Dtrain[-(1:20), ], aes(x=time)) +
+  geom_line(aes(y=theta_1_l07, col="lambda=0.7")) +
+  geom_line(aes(y=theta_1_l099, col="lambda=0.99")) +
+  xlab("Time [monthly]") +
+  ylab("theta_1") +
+  ggtitle("Values of theta_1") +
+  scale_color_manual(
+    name = "",
+    values = c("lambda=0.7" = "red",
+               "lambda=0.99" = "blue")
+  ) 
+
+
+# The parameter values seem to be stable at around 0 for lambda = 0.99
+# More fluctuating parameter values for lambda = 0.7, especially for theta_0
+# The parameter values does not seem to stabilize at some point for lambda = 0.7
+# But they take some time to start fluctuating 
+
+
+## 5.5 Predictions and residuals ----

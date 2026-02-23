@@ -4,8 +4,9 @@ library(tidyverse)
 # Read data ----
 #! Perhaps you need to set the working directory!?
 
-# setwd("/Users/krusand/OneDrive/DTU/2. Semester/02417 - Time Series Analysis/Assignments/Assignment1/")
-setwd("C:/Users/sebas/OneDrive/Documents/MSc_HCAI/2_time_series/02417-time-series-assignment1")
+
+setwd("/Users/krusand/Documents/GitHub/02417-time-series-assignment1/")
+#setwd("C:/Users/sebas/OneDrive/Documents/MSc_HCAI/2_time_series/02417-time-series-assignment1")
 D <- read.csv("DST_BIL54.csv")
 str(D)
 

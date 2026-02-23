@@ -151,35 +151,45 @@ ggplot(data=preds_WLS, aes(x=time, y=total, colour = set)) +
   geom_vline(xintercept = teststart) +
   xlab("Time [Month]") +
   ylab("Predicted [line] vs. actual [points]") +
+  ylim(c(2.9,3.4)) +
+  ggtitle("Forecast for WLS") +
   scale_color_manual(name = "Info"
                      , values = c("Predictions" = "red",'test'='blue', 'train'='grey'))
 
 
 # OLS 
+
+preds_LM_OLS <- (predict(OLS_lm, newdata = Dtest, interval = 'confidence'))
+lower_OLS <- preds_LM_OLS[1:nrow(Dtest),2]
+upper_OLS <- preds_LM_OLS[1:nrow(Dtest),3]
+
+
 test_preds_OLS <- X_test %>% 
   cbind(yhat_test_OLS) %>% 
   as.data.frame() %>% 
   select(year=V2, y_hat=V3) %>% 
-  mutate(set='test')
+  mutate(set='test') %>% 
+  cbind(lower_OLS) %>% 
+  cbind(upper_OLS)
 
 preds_OLS <- D %>% 
-  left_join(rbind(train_preds_OLS, test_preds_OLS), by = c('year'))
+  left_join(bind_rows(train_preds_OLS, test_preds_OLS), by = c('year'))
 
 
 ggplot(data=preds_OLS, aes(x=time, y=total, colour = set)) +
   geom_point() +
   geom_line(aes(x=time, y=y_hat, col='Predictions'),) +
+  geom_ribbon(aes(ymin = lower_OLS, ymax=upper_OLS), alpha=0.2) + 
   geom_vline(xintercept = teststart) +
   xlab("Time [Month]") +
   ylab("Predicted [line] vs. actual [points]") +
+  ggtitle("Forecast for OLS") +
   scale_color_manual(name = "Info"
                      , values = c("Predictions" = "red",'test'='blue', 'train'='grey'))
 
 
 preds_WLS <- preds_WLS %>% 
   mutate(residuals = total - y_hat)
-
-
 
 
 ggplot(data=preds_WLS, aes(x=time, y=residuals)) + 

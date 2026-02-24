@@ -82,6 +82,7 @@ ggplot(data=Dtrain, aes(x=time, y=yhat)) +
   xlab("Time [monthly]") +
   ylab("Number of cars registered [millions]") +
   ggtitle("Estimated number of cars registered in Denmark") +
+  theme(plot.title = element_text(hjust = 0.5)) +
   geom_point(aes(x=time, y=total))
 
 
@@ -131,7 +132,8 @@ ggplot(Dtrain, aes(x = year)) +
   ) +
   xlab("Time [monthly]") +
   ylab("Number of cars registered [millions]") +
-  ggtitle("OLS model with forecast and prediction interval")  
+  ggtitle("OLS model with forecast and prediction interval") +
+  theme(plot.title = element_text(hjust = 0.5)) 
 
 
 ## 3.5 Comment on prediction ----
@@ -145,7 +147,8 @@ ggplot(Dtrain, aes(x = year, y=residual)) +
   geom_point(color = "black") +
   xlab("Time [monthly]") +
   ylab("Residual") +
-  ggtitle("Residuals for the OLS model")
+  ggtitle("Residuals for the OLS model") +
+  theme(plot.title = element_text(hjust = 0.5))
 
 # The residuals seem to have mean approximately equal to zero 
 # But the residuals does not seem to be independent from the time 

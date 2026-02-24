@@ -385,5 +385,91 @@ ggplot(df_long, aes(x = lambdas, y = RMSE, color = horizon)) +
   ggtitle("RMSE for different horizons") +
   theme(plot.title = element_text(hjust = 0.5))
 
+# The RMSE is proportional to value of lambda and the horizon k.
+# Usually lambda is within the range (0.95, 0.999)
+# A lower lambda value implies quicker forgetting 
+# lambda = 1 corresponds to a static system in which the system parameters do not change over time (equal weight to all past data)
+# It might be a good idea to look for an elbow point in the plot
+# i.e., a point where the RMSE is not too high and the lambda is close to its typical range
+# aka. a trade-off between low RMSE and a high lambda value
+# lambda = 0.9 would be reasonable for short-term horizons
+# lambda = 0.8 would be more appropriate for longer horizons (k=8 to k=12)
+# So the choice of lambda depends on the horizon.
+
+
+## 5.7 Test predictions ----
+N_test <- length(Dtest$year)
+lambdas <- seq(from=0.8, to=0.9, by=0.1/N_test)
+preds <- c()
+
+for (i in 1:N_test) {
+  # Estimate parameters with lambda value
+  lambda <- lambdas[[i]]
+  theta_0 <- c(0,0)
+  R_0 <- matrix(c(0.1, 0, 0, 0.1), nrow = 2, ncol = 2)
+  thetas <- get_rls_params_w_forget(Dtrain$year, Dtrain$total, theta_0, R_0, lambda)
+  
+  # Unpacking estimates
+  theta_N <- thetas[[length(thetas)]]
+  theta_0 <- theta_N[1, 1]
+  theta_1 <- theta_N[2, 1]
+  
+  # Making prediction
+  x_val <- Dtest$year[[i]]
+  pred <- theta_0 + theta_1 * x_val
+  preds <- append(preds, pred)
+}
+
+# Add predictions to test dataframe
+Dtest$yhat_RLS <- preds
+
+
+# Plotting training data and predictions
+ggplot(Dtrain, aes(x = year)) +
+  geom_point(aes(y = total, color = "Observed")) +
+  geom_point(data = Dtest,
+             aes(x = year, y = yhat_RLS, color = "Forecast")) +
+  scale_color_manual(
+    name = "",
+    values = c("Observed" = "black",
+               "Forecast" = "red")
+  ) +
+  xlab("Time [monthly]") +
+  ylab("Number of cars registered [millions]") +
+  ggtitle("RLS training data and predictions") +
+  theme(plot.title = element_text(hjust = 0.5)) 
+
+
+## 5.8 Reflections on time adaptive models ----
+### Overfitting vs. underfitting ----
+# For short horizons and low lambda values one might risk overfitting to the most recent data
+# For longer horizons and lambda values close to 1, the model is more likely to underfit to new data
+# and still be highly affected by the past.
+
+
+### Creating time dependent test sets ----
+# We cannot split the data in an arbitrary way, e.g., randomly sample 20% of the dataset.
+# It must be sorted according to the time stamps. 
+# If the data is recorded periodically, e.g., one record per day, 
+# and the data follows some seasonal pattern 
+# one might be careful when choosing the cutoff between the train and test set. 
+# In most scenarios, it would be desirable to record data points with the same frequency across the 
+# training and test set. Otherwise it will become more tricky to generalize to the unknown test set. 
+
+
+### The role of recursive estimation in creating time dependent test sets ----
+# If the training data follows some seasonal or periodic pattern, it might be straightforward 
+# for RLS to take this into account, e.g., by letting the horizon be equal to 7 for a weekly pattern
+# such that the parameter estimates from the same weekday last week are used to make predictions in this week
+
+
+### Other techniques for time adaptive estimation ----
+# Maybe some nested time series model can be applied in which the parameter values are being forecasted 
+# by one or multiple separate model(s). 
+
+
+### Additional thoughts ----
+# Time adaptive models might be more susceptible to adversarial attacks since new malicious data
+# will affect the model more compared to models that are not time adaptive.
 
 

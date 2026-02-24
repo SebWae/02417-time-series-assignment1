@@ -183,6 +183,7 @@ theta_0 <- c(0,0)
 R_0 <- matrix(c(0.1, 0, 0, 0.1), nrow = 2, ncol = 2)
 thetas <- get_rls_params_w_forget(Dtrain$year, Dtrain$total, theta_0, R_0, 0.99)
 print(thetas)
+print(thetas)
 # Unpacking the parameter values
 theta_0s <- c()
 theta_1s <- c()
@@ -205,8 +206,8 @@ ggplot(data=Dtrain[-(1:20), ], aes(x=time)) +
   geom_line(aes(y=theta_0_l07, col="lambda=0.7")) +
   geom_line(aes(y=theta_0_l099, col="lambda=0.99")) +
   xlab("Time [monthly]") +
-  ylab(expression(theta[0])) +
-  ggtitle(expression(paste("Values of ", theta[0]))) +
+  ylab(expression(theta[1*","*t])) +
+  ggtitle(expression(paste("Values of ", theta[1*","*t]))) +
   theme(plot.title = element_text(hjust = 0.5)) +
   scale_color_manual(
     name = "",
@@ -218,8 +219,8 @@ ggplot(data=Dtrain[-(1:20), ], aes(x=time)) +
   geom_line(aes(y=theta_1_l07, col="lambda=0.7")) +
   geom_line(aes(y=theta_1_l099, col="lambda=0.99")) +
   xlab("Time [monthly]") +
-  ylab(expression(theta[1])) +
-  ggtitle(expression(paste("Values of ", theta[1]))) +
+  ylab(expression(theta[2*","*t])) +
+  ggtitle(expression(paste("Values of ", theta[2*","*t]))) +
   theme(plot.title = element_text(hjust = 0.5)) +
   scale_color_manual(
     name = "",

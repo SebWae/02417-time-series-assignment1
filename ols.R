@@ -145,6 +145,7 @@ ggplot(Dtrain, aes(x = year)) +
 Dtrain$residual <- e_OLS
 ggplot(Dtrain, aes(x = year, y=residual)) +
   geom_point(color = "black") +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "red", size=0.8) +
   xlab("Time [monthly]") +
   ylab("Residual") +
   ggtitle("Residuals for the OLS model") +

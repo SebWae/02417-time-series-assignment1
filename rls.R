@@ -205,8 +205,9 @@ ggplot(data=Dtrain[-(1:20), ], aes(x=time)) +
   geom_line(aes(y=theta_0_l07, col="lambda=0.7")) +
   geom_line(aes(y=theta_0_l099, col="lambda=0.99")) +
   xlab("Time [monthly]") +
-  ylab("theta_0") +
-  ggtitle("Values of theta_0") +
+  ylab(expression(theta[0])) +
+  ggtitle(expression(paste("Values of ", theta[0]))) +
+  theme(plot.title = element_text(hjust = 0.5)) +
   scale_color_manual(
     name = "",
     values = c("lambda=0.7" = "red",
@@ -217,8 +218,9 @@ ggplot(data=Dtrain[-(1:20), ], aes(x=time)) +
   geom_line(aes(y=theta_1_l07, col="lambda=0.7")) +
   geom_line(aes(y=theta_1_l099, col="lambda=0.99")) +
   xlab("Time [monthly]") +
-  ylab("theta_1") +
-  ggtitle("Values of theta_1") +
+  ylab(expression(theta[1])) +
+  ggtitle(expression(paste("Values of ", theta[1]))) +
+  theme(plot.title = element_text(hjust = 0.5)) +
   scale_color_manual(
     name = "",
     values = c("lambda=0.7" = "red",
@@ -233,3 +235,155 @@ ggplot(data=Dtrain[-(1:20), ], aes(x=time)) +
 
 
 ## 5.5 Predictions and residuals ----
+N <- length(Dtrain$theta_0_l07)
+
+# One-step predictions for lambda = 0.7
+yhat_l07 <- c()
+for (i in 1: N) {
+  x_val <- Dtrain$year[[i]]
+  if (i == 1) {
+    theta_0 <- 0
+    theta_1 <- 0
+  }
+  else {
+    theta_0 <- Dtrain$theta_0_l07[[i-1]]
+    theta_1 <- Dtrain$theta_1_l07[[i-1]]
+  }
+  pred <- theta_0 + x_val * theta_1
+  yhat_l07 <- append(yhat_l07, pred)
+}
+
+# Adding predictions to Dtrain dataframe
+Dtrain$yhat_l07 <- yhat_l07
+
+
+# One-step predictions for lambda = 0.99
+yhat_l099 <- c()
+for (i in 1: N) {
+  x_val <- Dtrain$year[[i]]
+  if (i == 1) {
+    theta_0 <- 0
+    theta_1 <- 0
+  }
+  else {
+    theta_0 <- Dtrain$theta_0_l099[[i-1]]
+    theta_1 <- Dtrain$theta_1_l099[[i-1]]
+  }
+  pred <- theta_0 + x_val * theta_1
+  yhat_l099 <- append(yhat_l099, pred)
+}
+
+# Adding predictions to Dtrain dataframe
+Dtrain$yhat_l099 <- yhat_l099
+
+
+# Computing residuals
+Dtrain$res_l07 <- Dtrain$yhat_l07 - Dtrain$total
+Dtrain$res_l099 <- Dtrain$yhat_l099 - Dtrain$total
+
+
+# Plotting residuals
+ggplot(data=Dtrain[-(1:4), ], aes(x=time)) +
+  geom_line(aes(y=res_l07, col="lambda=0.7")) +
+  geom_line(aes(y=res_l099, col="lambda=0.99")) +
+  xlab("Time [monthly]") +
+  ylab("Residual") +
+  ggtitle("Residuals for one-step predictions") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  scale_color_manual(
+    name = "",
+    values = c("lambda=0.7" = "red",
+               "lambda=0.99" = "blue")
+  ) 
+
+# The residuals do not have mean 0
+# especially for lambda=0.99, where the residuals are negative at all times.
+# For lambda=0.7, the residuals seem to approach 0, which indicates that the predictions become 
+# more accurate over time. 
+# As for the OLS residuals, the RLS residuals are not independent from the time
+# The residuals look like a non-random time series.
+
+
+## 5.6 Horizons and RMSE ----
+N <- length(Dtrain$year)
+horizons <- seq(from=1, to=12, by=1)   
+lambdas <- seq(from=0.5, to=0.99, by=0.01)
+
+# Matrix to store RMSEs
+RMSE_matrix <- matrix(NA, nrow = length(lambdas), ncol = length(horizons))
+
+for (h in horizons) {
+  RMSEs <- c()
+  for (lambda in lambdas) {
+    # Get parameter estimates based on lambda
+    theta_0 <- c(0,0)
+    R_0 <- matrix(c(0.1, 0, 0, 0.1), nrow = 2, ncol = 2)
+    thetas <- get_rls_params_w_forget(Dtrain$year, Dtrain$total, theta_0, R_0, lambda)
+    
+    # Unpacking the parameter values
+    theta_0s <- c()
+    theta_1s <- c()
+    
+    for (theta in thetas) {
+      # Retrieving theta values
+      theta_0 <- theta[1]
+      theta_1 <- theta[2]
+      
+      # Appending to lists
+      theta_0s <- append(theta_0s, theta_0)
+      theta_1s <- append(theta_1s, theta_1)
+    }
+    
+    # Making predictions
+    preds <- c()
+    for (i in 1:N) {
+      x_val <- Dtrain$year[[i]]
+      if (i > h) {
+        theta_0 <- theta_0s[[i-h]]
+        theta_1 <- theta_1s[[i-h]]
+        pred <- theta_0 + x_val * theta_1
+        preds <- append(preds, pred)
+      }
+    }
+    
+    # Computing RMSE
+    true_vals <- Dtrain$total[(h+1):N]
+    residuals <- (preds - true_vals)**2
+    RMSE = (1 / (N-h)) * sum(residuals)
+    RMSEs <- append(RMSEs, RMSE)
+  }
+  RMSE_matrix[, h] <- RMSEs
+}
+
+# Plotting RMSEs against lambda values
+# Set margins and remove grey background
+df <- data.frame(lambdas, RMSE_matrix)
+
+df_long <- df %>%
+  pivot_longer(
+    cols = -lambdas,
+    names_to = "horizon",
+    values_to = "RMSE"
+  )
+
+# Rename factor levels
+df_long$horizon <- factor(df_long$horizon, levels = paste0("X", 1:12), labels = paste0("k=", 1:12))
+
+# Make sure the color vector names match the new factor levels
+colors <- c(
+  "k=1"="#08306b", "k=2"="#08519c", "k=3"="#2171b5", 
+  "k=4"="#4292c6", "k=5"="#6baed6", "k=6"="#9ecae1",
+  "k=7"="#c6dbef", "k=8"="#dadaeb", "k=9"="#b2e2e2",
+  "k=10"="#66c2a4", "k=11"="#2ca25f", "k=12"="#006d2c"
+)
+
+ggplot(df_long, aes(x = lambdas, y = RMSE, color = horizon)) +
+  geom_line(size = 1.2) +
+  scale_color_manual(values = colors) +
+  theme_minimal() +
+  xlab(expression(lambda)) +
+  ggtitle("RMSE for different horizons") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+

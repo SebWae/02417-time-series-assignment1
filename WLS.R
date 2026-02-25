@@ -39,9 +39,8 @@ var_cov_matrix <- function(n,weights=NA) {
   return (SIGMA)
 }
 
-
 n <- nrow(Dtrain)
-lambda = 0.9
+lambda <- 0.9
 weights <- lambda^((n-1):0)
 
 
@@ -79,72 +78,70 @@ n
 
 # OLS has n as the sum of weights
 
-## 4.4 ----
+
 y_train <- Dtrain$total
 X_train <- cbind(1, Dtrain$year)
-
-### WLS ----
-theta_WLS <- solve(t(X_train)%*%solve(SIGMA_local)%*%X_train)%*%(t(X_train)%*%solve(SIGMA_local)%*%y_train)
-print(theta_WLS)
-
-# Check with built in model:
-WLS_lm <- lm(total ~ year, weights = weights, data = Dtrain)
-
-summary(WLS_lm)
-
-# Predict on train
-yhat_train_WLS <- X_train%*%theta_WLS
-
-# Make to dataframe
-
-train_preds_WLS <- X_train %>% 
-  cbind(yhat_train_WLS) %>% 
-  as.data.frame() %>% 
-  select(year=V2, y_hat=V3)%>% 
-  mutate(set='train')
-
-
-### OLS ----
-
-theta_OLS <- solve(t(X_train)%*%solve(SIGMA_global)%*%X_train)%*%(t(X_train)%*%solve(SIGMA_global)%*%y_train)
-print(theta_OLS)
-yhat_train_OLS <- X_train %*% theta_OLS
-
-OLS_lm <- lm(total ~ year, data = Dtrain)
-
-summary(OLS_lm)
-
-train_preds_OLS <- X_train %>% 
-  cbind(yhat_train_OLS) %>% 
-  as.data.frame() %>% 
-  select(year=V2, y_hat=V3)%>% 
-  mutate(set='train')
-
-## 4.5: Test data ----
-
 y_test <- Dtest$total
 X_test <- cbind(1, Dtest$year)
+preds_WLSs <- list()
 
-# Make test predictions
-yhat_test_WLS <- X_test%*%theta_WLS
-yhat_test_OLS <- X_test%*%theta_OLS
+n <- nrow(Dtrain)
+lambdas <- c(0.61, 0.7, 0.8, 0.9, 0.99)
 
-preds_LM_WLS <- (predict(WLS_lm, newdata = Dtest, interval = 'confidence'))
-lower <- preds_LM_WLS[1:nrow(Dtest),2]
-upper <- preds_LM_WLS[1:nrow(Dtest),3]
+for (i in 1:length(lambdas)) {
+  lambda <- lambdas[i]
+  weights <- lambda^((n-1):0)
+  
+  SIGMA_local <- var_cov_matrix(n, weights)
+  
+  
+  # Estimate theta using equation
+  theta_WLS <- solve(t(X_train)%*%solve(SIGMA_local)%*%X_train)%*%(t(X_train)%*%solve(SIGMA_local)%*%y_train)
+  
+  # Check with built in model:
+  WLS_lm <- lm(total ~ year, weights = weights, data = Dtrain)
+  
+  summary(WLS_lm)
+  
+  # Predict on train and test
+  # Make a dataframe
+  yhat_train_WLS <- X_train%*%theta_WLS
+  yhat_test_WLS <- X_test%*%theta_WLS
+  
+  preds_LM_WLS <- (predict(WLS_lm, newdata = Dtest, interval = 'confidence'))
+  lower <- preds_LM_WLS[1:nrow(Dtest),2]
+  upper <- preds_LM_WLS[1:nrow(Dtest),3]
+  
+  
+  train_preds_WLS <- X_train %>% 
+    cbind(yhat_train_WLS) %>% 
+    as.data.frame() %>% 
+    select(year=V2, y_hat=V3)%>% 
+    mutate(set='train',
+           lambda = lambda)
+  
+  test_preds_WLS <- X_test %>% 
+    cbind(yhat_test_WLS) %>% 
+    as.data.frame() %>% 
+    select(year=V2, y_hat=V3)%>% 
+    mutate(set='test',
+           lambda = lambda) %>% 
+    cbind(lower) %>% 
+    cbind(upper)
+  
+  
+  preds_WLS <- D %>% 
+    left_join(bind_rows(train_preds_WLS, test_preds_WLS), by = c('year'))
+  
+  preds_WLSs[[i]] <- preds_WLS
+  
+}
 
-test_preds_WLS <- X_test %>% 
-  cbind(yhat_test_WLS) %>% 
-  as.data.frame() %>% 
-  select(year=V2, y_hat=V3)%>% 
-  mutate(set='test') %>% 
-  cbind(lower) %>% 
-  cbind(upper)
 
-preds_WLS <- D %>% 
-  left_join(bind_rows(train_preds_WLS, test_preds_WLS), by = c('year'))
+preds_WLS <- bind_rows(preds_WLSs)
 
-ggplot(data=preds_WLS, aes(x=time, y=total, colour = set)) +
+ggplot(data=preds_WLS, aes(x=time, y=total, colour = set, group = lambda)) +
+  facet_wrap(~lambda, ncol=1, labeller=label_both) + 
   geom_point() +
   geom_ribbon(aes(ymin = lower, ymax=upper), alpha=0.2) + 
   geom_line(aes(x=time, y=y_hat, col='Predictions'),) +
@@ -155,43 +152,4 @@ ggplot(data=preds_WLS, aes(x=time, y=total, colour = set)) +
   ggtitle("Forecast for WLS") +
   scale_color_manual(name = "Info"
                      , values = c("Predictions" = "red",'test'='blue', 'train'='grey'))
-
-
-# OLS 
-
-preds_LM_OLS <- (predict(OLS_lm, newdata = Dtest, interval = 'confidence'))
-lower_OLS <- preds_LM_OLS[1:nrow(Dtest),2]
-upper_OLS <- preds_LM_OLS[1:nrow(Dtest),3]
-
-
-test_preds_OLS <- X_test %>% 
-  cbind(yhat_test_OLS) %>% 
-  as.data.frame() %>% 
-  select(year=V2, y_hat=V3) %>% 
-  mutate(set='test') %>% 
-  cbind(lower_OLS) %>% 
-  cbind(upper_OLS)
-
-preds_OLS <- D %>% 
-  left_join(bind_rows(train_preds_OLS, test_preds_OLS), by = c('year'))
-
-
-ggplot(data=preds_OLS, aes(x=time, y=total, colour = set)) +
-  geom_point() +
-  geom_line(aes(x=time, y=y_hat, col='Predictions'),) +
-  geom_ribbon(aes(ymin = lower_OLS, ymax=upper_OLS), alpha=0.2) + 
-  geom_vline(xintercept = teststart) +
-  xlab("Time [Month]") +
-  ylab("Predicted [line] vs. actual [points]") +
-  ggtitle("Forecast for OLS") +
-  scale_color_manual(name = "Info"
-                     , values = c("Predictions" = "red",'test'='blue', 'train'='grey'))
-
-
-preds_WLS <- preds_WLS %>% 
-  mutate(residuals = total - y_hat)
-
-
-ggplot(data=preds_WLS, aes(x=time, y=residuals)) + 
-  geom_point()
-
+2
